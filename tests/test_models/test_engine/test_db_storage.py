@@ -87,6 +87,7 @@ class TestFileStorage(unittest.TestCase):
     def test_save(self):
         """Test that save properly saves objects to file.json"""
         @unittest.skipIf(models.storage_t != 'db', "not testing db storage")
+
     def test_count(self):
         """Func that test that count method returns an accurate count of objects"""
         models.storage.reload()
@@ -101,7 +102,7 @@ class TestFileStorage(unittest.TestCase):
 
     @unittest.skipIf(models.storage_t != 'db', "not testing db storage")
     def test_get(self):
-        """Func that Test that get method returns object by valid id"""
+        """Func that Test that get method returns object by  a valid id"""
         models.storage.reload()
         user = User(email="1@2.com", password="123")
         models.storage.new(user)
