@@ -1,101 +1,151 @@
 #!/usr/bin/python3
-"""Module for New view for Review objects that handles all default RestFul API actions
+"""
+This module defines API endpoints for handling Review objects related
+to Place objects. It provides functionalities for CRUD operations
+following RESTful API principles.
 """
 
-from api.v1.views import app_views
-from flask import jsonify, abort, request
+from flask import Blueprint, jsonify, request, abort
 from models import storage
-from models.place import Place
 from models.review import Review
+from models.place import Place
 from models.user import User
 
-
-@app_views.route('/places/<place_id>/reviews', methods=['GET', 'POST'],
-                 strict_slashes=False)
-def review_methods(place_id):
-    """func that Calls method for Review object with place_id"""
-    reviews = storage.all(Review)
-    places = storage.all(Place)
-
-    # GET
-    if request.method == "GET":
-        place_key = "Place." + place_id
-        try:
-            place = places[place_key]
-            reviews_list = [review.to_dict() for review in place.reviews]
-            return jsonify(reviews_list)
-        except KeyError:
-            abort(404)
-
-    # POST REQUESTS
-    elif request.method == "POST":
-        if request.is_json:
-            body_request = request.get_json()
-        else:
-            abort(400, "Not a JSON")
-        if 'user_id' not in body_request:
-            abort(400, "Missing user_id")
-        elif 'text' not in body_request:
-            abort(400, "Missing text")
-        else:
-            users = storage.all(User)
-            user_id = body_request['user_id']
-            all_user_ids = [user_ids.id for user_ids in users.values()]
-            if user_id not in all_user_ids:
-                abort(404)
-            place_key = "Place." + place_id
-            if place_key not in places:
-                abort(404)
-            body_request.update({"place_id": place_id})
-            new_review = Review(**body_request)
-            storage.new(new_review)
-            storage.save()
-            return jsonify(new_review.to_dict()), 201
-
-    else:
-        abort(501)
+bp = Blueprint('places_reviews', __name__)
 
 
-@app_views.route('/reviews/<review_id>', methods=['GET', 'DELETE', 'PUT'],
-                 strict_slashes=False)
-def reviews_id_mothods(review_id):
-    """func that Review object methods"""
-    reviews = storage.all(Review)
+@bp.route('/places/<place_id>/reviews', methods=['GET'])
+def get_reviews(place_id):
+    """
+    Retrieves the list of all Review objects for a specified Place.
+    If the place_id is not linked to any Place object, a 404 error is raised.
 
-    if request.method == "GET":
-        if not review_id:
-            return jsonify([obj.to_dict() for obj in reviews.values()])
-        key = "Review." + review_id
-        try:
-            return jsonify(reviews[key].to_dict())
-        except KeyError:
-            abort(404)
+    Args:
+        place_id (str): The ID of the Place.
 
-    elif request.method == "DELETE":
-        try:
-            key = "Review." + review_id
-            storage.delete(reviews[key])
-            storage.save()
-            return jsonify({}), 200
-        except:
-            abort(404)
+    Returns:
+        JSON: List of Review objects in JSON format.
+    """
+    place = storage.get(Place, place_id)
+    if not place:
+        abort(404)
+    reviews = [review.to_dict() for review in place.reviews]
+    return jsonify(reviews)
 
-    elif request.method == "PUT":
-        review_key = "Review." + review_id
-        try:
-            review = reviews[review_key]
-        except KeyError:
-            abort(404)
-        if request.is_json:
-            new = request.get_json()
-        else:
-            abort(400, "Not a JSON")
-        for key, value in new.items():
-            if key != "id" and key != "user_id" and key != "place_id" and\
-               key != "created_at" and key != "updated_at":
-                setattr(review, key, value)
-            storage.save()
-            return review.to_dict(), 200
 
-    else:
-        abort(501)
+@bp.route('/reviews/<review_id>', methods=['GET'])
+def get_review(review_id):
+    """
+    Retrieves a Review object by its ID.
+    If the review_id is not linked to any Review object, a 404 error is raised.
+
+    Args:
+        review_id (str): The ID of the Review.
+
+    Returns:
+        JSON: The Review object in JSON format.
+    """
+    review = storage.get(Review, review_id)
+    if not review:
+        abort(404)
+    return jsonify(review.to_dict())
+
+
+@bp.route('/reviews/<review_id>', methods=['DELETE'])
+def delete_review(review_id):
+    """
+    Deletes a Review object by its ID.
+    If the review_id is not linked to any Review object, a 404 error is raised.
+    Returns an empty dictionary with status code 200.
+
+    Args:
+        review_id (str): The ID of the Review.
+
+    Returns:
+        JSON: An empty dictionary with status code 200.
+    """
+    review = storage.get(Review, review_id)
+    if not review:
+        abort(404)
+    storage.delete(review)
+    storage.save()
+    return jsonify({}), 200
+
+
+@bp.route('/places/<place_id>/reviews', methods=['POST'])
+def create_review(place_id):
+    """
+    Creates a new Review object for a specified Place.
+    If the place_id is not linked to any Place object, a 404 error is raised.
+    If the HTTP body request is not valid JSON, a 400 error with the message
+    "Not a JSON" is raised.
+    If the dictionary doesn’t contain the key user_id, a 400 error with the
+    message "Missing user_id" is raised.
+    If the user_id is not linked to any User object, a 404 error is raised.
+    If the dictionary doesn’t contain the key text, a 400 error with the
+    message "Missing text" is raised.
+    Returns the new Review with the status code 201.
+
+    Args:
+        place_id (str): The ID of the Place.
+
+    Returns:
+        JSON: The new Review object in JSON format with status code 201.
+    """
+    place = storage.get(Place, place_id)
+    if not place:
+        abort(404)
+
+    try:
+        data = request.get_json()
+    except Exception:
+        abort(400, description="Not a JSON")
+
+    if 'user_id' not in data:
+        abort(400, description="Missing user_id")
+    if 'text' not in data:
+        abort(400, description="Missing text")
+
+    user = storage.get(User, data['user_id'])
+    if not user:
+        abort(404)
+
+    data['place_id'] = place_id
+    new_review = Review(**data)
+    storage.new(new_review)
+    storage.save()
+    return jsonify(new_review.to_dict()), 201
+
+
+@bp.route('/reviews/<review_id>', methods=['PUT'])
+def update_review(review_id):
+    """
+    Updates a Review object by its ID.
+    If the review_id is not linked to any Review object, a 404 error is raised.
+    If the HTTP request body is not valid JSON, a 400 error with the message
+    "Not a JSON" is raised.
+    Updates the Review object with all key-value pairs of the dictionary,
+    ignoring keys: id, user_id, place_id, created_at, and updated_at.
+    Returns the updated Review object with the status code 200.
+
+    Args:
+        review_id (str): The ID of the Review.
+
+    Returns:
+        JSON: The updated Review object in JSON format with status code 200.
+    """
+    review = storage.get(Review, review_id)
+    if not review:
+        abort(404)
+
+    try:
+        data = request.get_json()
+    except Exception:
+        abort(400, description="Not a JSON")
+
+    ignore_keys = {'id', 'user_id', 'place_id', 'created_at', 'updated_at'}
+    for key, value in data.items():
+        if key not in ignore_keys:
+            setattr(review, key, value)
+    storage.save()
+    return jsonify(review.to_dict()), 200
