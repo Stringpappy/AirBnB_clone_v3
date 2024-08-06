@@ -1,5 +1,6 @@
 #!/usr/bin/python3
-"""The module for New view for City objects that handles all default RestFul API actions
+"""The module for New view for City objects
+that handles all default RestFul API actions
 """
 
 from api.v1.views import app_views
@@ -51,7 +52,7 @@ def cities_id_mothods(city_id):
     """the func Retrieves a City object with GET"""
     cities = storage.all(City)
 
-    # GET 
+    # GET
     if request.method == "GET":
         if not city_id:
             return jsonify([obj.to_dict() for obj in cities.values()])
